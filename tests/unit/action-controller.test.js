@@ -41,6 +41,31 @@ describe("action controller", () => {
     controller.destroy();
   });
 
+  it("does not start overlapping clicks while debugger dispatch is pending", async () => {
+    const { player, button, storage } = setup();
+    let finishDispatch;
+    const dispatchClick = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          finishDispatch = resolve;
+        }),
+    );
+    const controller = new ActionController({
+      storage,
+      isEnabled: () => true,
+      dispatchClick,
+    });
+
+    const first = controller.activate(button, player);
+    const second = controller.activate(button, player);
+    expect(await second).toBe(false);
+    expect(dispatchClick).toHaveBeenCalledOnce();
+
+    finishDispatch({ attempted: true, method: "browser-input" });
+    expect(await first).toBe(true);
+    controller.destroy();
+  });
+
   it("retries a still-visible control once after a short cooldown", async () => {
     vi.useFakeTimers();
     const { player, button, storage } = setup();
@@ -107,6 +132,32 @@ describe("action controller", () => {
     await controller.activate(button, player);
     await vi.advanceTimersByTimeAsync(20);
     expect(storage.values.autoskipStats).toEqual({ attempts: 1, confirmed: 0 });
+    controller.destroy();
+  });
+
+  it("logs timestamped detection and dispatch latency when diagnostics are enabled", async () => {
+    const { player, button, storage } = setup();
+    const log = vi.spyOn(console, "info").mockImplementation(() => {});
+    const controller = new ActionController({
+      storage,
+      isEnabled: () => true,
+      diagnosticsEnabled: () => true,
+      dispatchClick: async () => ({
+        attempted: true,
+        method: "browser-input",
+      }),
+    });
+
+    await controller.activate(button, player, document, {
+      detectedAt: performance.now() - 25,
+      reason: "fallback",
+    });
+
+    expect(log).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^\[AutoSkip \d{4}-\d{2}-\d{2}T[^\]]+\] source=fallback detectionLatencyMs=\d+ clickDispatchMs=\d+ method=browser-input$/,
+      ),
+    );
     controller.destroy();
   });
 });

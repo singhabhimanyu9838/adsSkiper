@@ -5,16 +5,25 @@ export class PlayerObserver {
     document = globalThis.document,
     onCandidate,
     onPlayerChange = () => {},
+    shouldRun = () => true,
+    fallbackInterval = 250,
   }) {
     this.document = document;
     this.onCandidate = onCandidate;
     this.onPlayerChange = onPlayerChange;
+    this.shouldRun = shouldRun;
+    this.fallbackInterval = fallbackInterval;
     this.player = null;
     this.playerObserver = null;
     this.documentObserver = null;
+    this.fallbackTimer = null;
     this.scheduled = false;
     this.destroyed = false;
-    this.handleNavigation = () => this.schedule();
+    this.pendingReason = "mutation";
+    this.handleNavigation = () => {
+      this.attachPlayer();
+      this.schedule("navigation");
+    };
   }
 
   start() {
@@ -33,7 +42,7 @@ export class PlayerObserver {
         );
       if (!playerWasReplaced) return;
       this.attachPlayer();
-      this.schedule();
+      this.schedule("player-replacement");
     });
     this.documentObserver.observe(this.document.documentElement, {
       childList: true,
@@ -45,7 +54,7 @@ export class PlayerObserver {
       this.handleNavigation,
     );
     this.attachPlayer();
-    this.schedule();
+    this.schedule("initial");
   }
 
   attachPlayer() {
@@ -58,31 +67,88 @@ export class PlayerObserver {
     this.onPlayerChange(nextPlayer);
 
     if (nextPlayer) {
-      this.playerObserver = new MutationObserver(() => this.schedule());
+      this.playerObserver = new MutationObserver(() =>
+        this.schedule("player-mutation"),
+      );
       this.playerObserver.observe(nextPlayer, {
         attributes: true,
         childList: true,
         subtree: true,
+        attributeFilter: [
+          "class",
+          "style",
+          "hidden",
+          "aria-hidden",
+          "disabled",
+          "aria-disabled",
+        ],
       });
+    } else {
+      this.stopFallbackCheck();
     }
   }
 
-  schedule() {
+  schedule(reason = "mutation") {
+    this.pendingReason = reason;
     if (this.scheduled || this.destroyed) return;
     this.scheduled = true;
     queueMicrotask(() => {
       this.scheduled = false;
       if (this.destroyed) return;
-      this.attachPlayer();
-      const candidate = findSkipControl(this.player);
-      if (candidate) this.onCandidate(candidate, this.player);
+      if (!this.player?.isConnected) this.attachPlayer();
+      this.checkPlayer(this.pendingReason);
     });
+  }
+
+  checkPlayer(reason) {
+    const player = this.player;
+    if (!player?.isConnected) {
+      this.stopFallbackCheck();
+      return;
+    }
+
+    if (this.shouldRun() && player.classList.contains("ad-showing")) {
+      this.startFallbackCheck();
+    } else {
+      this.stopFallbackCheck();
+    }
+
+    const candidate = findSkipControl(player);
+    if (candidate) {
+      this.onCandidate(candidate, player, {
+        detectedAt: performance.now(),
+        reason,
+      });
+    }
+  }
+
+  startFallbackCheck() {
+    if (this.fallbackTimer !== null) return;
+    this.fallbackTimer = setInterval(() => {
+      if (this.destroyed || !this.shouldRun()) {
+        this.stopFallbackCheck();
+        return;
+      }
+      if (!this.player?.isConnected) this.attachPlayer();
+      if (!this.player?.classList.contains("ad-showing")) {
+        this.stopFallbackCheck();
+        return;
+      }
+      this.checkPlayer("fallback");
+    }, this.fallbackInterval);
+  }
+
+  stopFallbackCheck() {
+    if (this.fallbackTimer === null) return;
+    clearInterval(this.fallbackTimer);
+    this.fallbackTimer = null;
   }
 
   destroy() {
     this.destroyed = true;
     this.documentObserver?.disconnect();
     this.playerObserver?.disconnect();
+    this.stopFallbackCheck();
     this.document.removeEventListener(
       "yt-navigate-finish",
       this.handleNavigation,

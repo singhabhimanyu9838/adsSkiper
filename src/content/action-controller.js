@@ -25,6 +25,7 @@ export class ActionController {
     this.confirmationDelay = confirmationDelay;
     this.retryDelay = retryDelay;
     this.maxAttempts = maxAttempts;
+    this.inFlight = new WeakSet();
     this.attemptCounts = new WeakMap();
     this.retryScheduled = new WeakSet();
     this.confirmed = new WeakSet();
@@ -32,17 +33,29 @@ export class ActionController {
     this.destroyed = false;
   }
 
-  async activate(candidate, player, document = globalThis.document) {
+  async activate(
+    candidate,
+    player,
+    document = globalThis.document,
+    { detectedAt = performance.now(), reason = "direct" } = {},
+  ) {
     if (this.destroyed || !this.isEnabled()) return false;
     const attempts = this.attemptCounts.get(candidate) ?? 0;
-    if (attempts >= this.maxAttempts || this.retryScheduled.has(candidate))
+    if (
+      attempts >= this.maxAttempts ||
+      this.retryScheduled.has(candidate) ||
+      this.inFlight.has(candidate)
+    )
       return false;
     if (!validateSkipControl(candidate, player, document)) return false;
 
+    this.inFlight.add(candidate);
     this.attemptCounts.set(candidate, attempts + 1);
     const wasAdShowing = player.classList.contains("ad-showing");
     try {
+      const clickStartedAt = performance.now();
       const clickResult = await this.dispatchClick(candidate, player, document);
+      const clickCompletedAt = performance.now();
       if (!clickResult?.attempted) {
         this.attemptCounts.delete(candidate);
         return false;
@@ -51,7 +64,7 @@ export class ActionController {
         await recordAttempt({ storage: this.storage });
       if (this.diagnosticsEnabled())
         console.info(
-          `AutoSkip attempted a verified skip control using ${clickResult.method}.`,
+          `[AutoSkip ${new Date().toISOString()}] source=${reason} detectionLatencyMs=${Math.max(0, Math.round(clickStartedAt - detectedAt))} clickDispatchMs=${Math.max(0, Math.round(clickCompletedAt - clickStartedAt))} method=${clickResult.method}`,
         );
       this.onStatus({ type: "attempted", method: clickResult.method });
       this.confirm(candidate, player, wasAdShowing);
@@ -60,6 +73,8 @@ export class ActionController {
     } catch (error) {
       console.warn("AutoSkip could not activate the skip control.", error);
       return false;
+    } finally {
+      this.inFlight.delete(candidate);
     }
   }
 
@@ -93,7 +108,9 @@ export class ActionController {
       try {
         if (this.recordStatistics()) await recordConfirmation(this.storage);
         if (this.diagnosticsEnabled())
-          console.info("AutoSkip observed the ad state end after its attempt.");
+          console.info(
+            `[AutoSkip ${new Date().toISOString()}] ad-end confirmed after skip click.`,
+          );
         this.onStatus({ type: "confirmed" });
       } catch (error) {
         console.warn("AutoSkip could not update local statistics.", error);

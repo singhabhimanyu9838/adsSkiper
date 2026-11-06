@@ -33,7 +33,7 @@ To test the ZIP, extract it to a new directory and load that directory as an unp
 - `scripts/build.js` bundles browser modules into the files referenced by the MV3 manifest.
 - `tests/unit/` uses Happy DOM fixtures. These tests are deterministic simulations, not live YouTube tests.
 
-The observer watches for player insertion/replacement and watches the current player subtree for changes. Recognized controls are revalidated immediately before activation. If the same control remains visible and enabled, AutoSkip retries once after a 120 ms cooldown, then stops. A confirmation is recorded only when the player was in its `ad-showing` state before an attempt and afterward that state and the control are both gone. This is an observable heuristic, not a guarantee that the click caused the transition.
+The observer watches for player insertion/replacement and watches class, style, hidden, and disabled-state changes inside the current player. It coalesces mutation bursts into a microtask scan. While AutoSkip is enabled and the player is in its `ad-showing` state, a 250 ms fallback scan catches CSS-only visibility changes that produce no DOM mutation; the timer stops as soon as the ad ends or AutoSkip is disabled. Recognized controls are revalidated immediately before activation. If the same control remains visible and enabled, AutoSkip retries once after a 120 ms cooldown, then stops. When diagnostics are enabled, the console logs an ISO timestamp, detection source, detection latency, and click-dispatch duration. A confirmation is recorded only when the player was in its `ad-showing` state before an attempt and afterward that state and the control are both gone. This is an observable heuristic, not a guarantee that the click caused the transition.
 
 ## Permissions and privacy
 
@@ -45,9 +45,9 @@ AutoSkip does not access browsing history, cookies, account identifiers, authent
 
 ## Test and verification status
 
-- Unit tests cover known and unknown selectors, visibility, disabled/stale/out-of-player controls, duplicate actions, disabled preferences, malformed settings, storage, and attempt-versus-confirmation counts.
+- Unit tests cover known and unknown selectors, visibility, disabled/stale/out-of-player controls, duplicate actions, disabled preferences, malformed settings, storage, attempt-versus-confirmation counts, attribute-driven detection, CSS-only fallback detection, and timestamped latency diagnostics.
 - Player replacement, navigation, and observer cleanup are covered by DOM observer tests where supported.
-- No live YouTube integration test is included. A mocked DOM cannot establish that selectors match YouTube's current production UI.
+- No live YouTube integration test is included. Mocked DOM tests verify mouse-independent observer logic but cannot establish that selectors match YouTube's current production UI or that a live skip action is accepted.
 - Chrome and Edge installation and playback have not been verified in this development environment. The extension requires a Chromium browser with Manifest V3 support.
 
 ## Known limitations and troubleshooting

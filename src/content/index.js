@@ -45,8 +45,9 @@ async function initialize() {
     },
   });
   const observer = new PlayerObserver({
-    onCandidate: (candidate, player) =>
-      actionController.activate(candidate, player),
+    onCandidate: (candidate, player, metadata) =>
+      actionController.activate(candidate, player, document, metadata),
+    shouldRun: () => settings.autoskipEnabled,
     onPlayerChange: (player) => {
       playerDetected = Boolean(player);
     },

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlayerObserver } from "../../src/content/observer.js";
+import { validateSkipControl } from "../../src/content/validator.js";
 
 const settleMutations = async () => {
   await Promise.resolve();
@@ -8,6 +9,7 @@ const settleMutations = async () => {
 
 describe("player observer", () => {
   afterEach(() => {
+    vi.useRealTimers();
     document.body.innerHTML = "";
   });
 
@@ -65,6 +67,62 @@ describe("player observer", () => {
     main.append(document.createElement("div"));
     await settleMutations();
     expect(querySpy).not.toHaveBeenCalled();
+    observer.destroy();
+  });
+
+  it("reacts to class, style, and enabled-state changes without pointer events", async () => {
+    document.body.innerHTML =
+      '<div id="movie_player" class="ad-showing"><button class="unrelated" disabled hidden>Skip</button></div>';
+    const player = document.querySelector("#movie_player");
+    const button = player.querySelector("button");
+    button.getClientRects = () => [{ width: 80, height: 30 }];
+    button.getBoundingClientRect = () => ({ width: 80, height: 30 });
+    const validCandidates = vi.fn();
+    const observer = new PlayerObserver({
+      onCandidate: (candidate, currentPlayer) => {
+        if (validateSkipControl(candidate, currentPlayer)) {
+          validCandidates(candidate);
+        }
+      },
+    });
+    observer.start();
+    await settleMutations();
+
+    button.className = "ytp-ad-skip-button-modern";
+    button.style.visibility = "visible";
+    button.disabled = false;
+    button.hidden = false;
+    await settleMutations();
+
+    expect(validCandidates).toHaveBeenCalledWith(button);
+    observer.destroy();
+  });
+
+  it("catches a CSS-only visibility change while the mouse is stationary", async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML =
+      '<div id="movie_player" class="ad-showing"><button class="ytp-ad-skip-button-modern">Skip</button></div>';
+    const player = document.querySelector("#movie_player");
+    const button = player.querySelector("button");
+    let visible = false;
+    button.getClientRects = () => (visible ? [{ width: 80, height: 30 }] : []);
+    button.getBoundingClientRect = () => ({ width: 80, height: 30 });
+    const validCandidates = vi.fn();
+    const observer = new PlayerObserver({
+      fallbackInterval: 50,
+      onCandidate: (candidate, currentPlayer) => {
+        if (validateSkipControl(candidate, currentPlayer)) {
+          validCandidates(candidate);
+        }
+      },
+    });
+    observer.start();
+    await settleMutations();
+    expect(validCandidates).not.toHaveBeenCalled();
+
+    visible = true;
+    await vi.advanceTimersByTimeAsync(50);
+    expect(validCandidates).toHaveBeenCalledWith(button);
     observer.destroy();
   });
 });
