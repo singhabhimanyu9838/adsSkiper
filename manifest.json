@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "AutoSkip for YouTube",
+  "version": "1.0.0",
+  "description": "Automatically activates YouTube's visible, enabled skip-ad control when one is available.",
+  "permissions": ["storage", "debugger"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "AutoSkip",
+    "default_popup": "popup/popup.html"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

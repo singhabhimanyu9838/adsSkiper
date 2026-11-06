@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>AutoSkip</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="brand-row">
+        <img src="../assets/icons/icon.svg" alt="" width="40" height="40" />
+        <div>
+          <p class="eyebrow">YOUTUBE PLAYER</p>
+          <h1>AutoSkip</h1>
+        </div>
+      </header>
+
+      <section class="control-row" aria-labelledby="toggle-label">
+        <div>
+          <h2 id="toggle-label">Automatic skip</h2>
+          <p id="toggle-description">Activate visible skip controls</p>
+        </div>
+        <button
+          id="enabled-toggle"
+          class="switch"
+          type="button"
+          role="switch"
+          aria-checked="true"
+          aria-labelledby="toggle-label"
+          aria-describedby="toggle-description"
+        >
+          <span class="switch-knob"></span>
+        </button>
+      </section>
+
+      <section class="status-row" aria-live="polite">
+        <span id="status-mark" class="status-mark" aria-hidden="true"></span>
+        <p id="status-text">Checking this tab...</p>
+      </section>
+
+      <section class="statistics" aria-label="Local action statistics">
+        <div><strong id="attempt-count">0</strong><span>Attempts</span></div>
+        <div><strong id="confirmed-count">0</strong><span>Confirmed</span></div>
+      </section>
+      <p class="stat-note">
+        Confirmed means the player left its ad state after an attempt.
+      </p>
+
+      <footer class="footer-row">
+        <a href="../options/options.html" id="settings-link">Settings</a>
+        <a href="https://www.youtube.com/" target="_blank" rel="noreferrer"
+          >Open YouTube</a
+        >
+      </footer>
+      <p class="privacy-note">
+        Private by design. Preferences and counts stay on this device.
+      </p>
+      <p id="error-text" class="error-text" role="status" hidden></p>
+    </main>
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

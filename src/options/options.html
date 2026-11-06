@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>AutoSkip settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="settings-page">
+      <header>
+        <div>
+          <p class="eyebrow">AUTOSKIP</p>
+          <h1>Settings</h1>
+        </div>
+      </header>
+      <section class="settings-list" aria-label="Preferences">
+        <label class="setting-row">
+          <span
+            ><strong>Automatic skip</strong
+            ><small
+              >Activate a recognized visible YouTube skip-ad control.</small
+            ></span
+          >
+          <input id="autoskipEnabled" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span
+            ><strong>Local action statistics</strong
+            ><small
+              >Keep attempt and confirmed-action totals on this device.</small
+            ></span
+          >
+          <input id="aggregateActionStatistics" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span
+            ><strong>Diagnostic messages</strong
+            ><small
+              >Write verified action events to the browser console.</small
+            ></span
+          >
+          <input id="diagnosticsEnabled" type="checkbox" />
+        </label>
+      </section>
+      <section class="data-section">
+        <div>
+          <h2>Local statistics</h2>
+          <p id="statistics-summary">Loading...</p>
+        </div>
+        <button id="reset-stats" type="button">Reset totals</button>
+      </section>
+      <p id="save-status" class="save-status" aria-live="polite"></p>
+      <footer>
+        AutoSkip does not block ads or skip ads without an available skip
+        control.
+      </footer>
+    </main>
+    <script src="options.js" type="module"></script>
+  </body>
+</html>
